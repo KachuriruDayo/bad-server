@@ -318,7 +318,7 @@ export const createOrder = async (
             email,
             comment: sanitizeHtml(comment),
             customer: userId,
-            deliveryAddress: address,
+            deliveryAddress: sanitizeHtml(address),
         })
         const populateOrder = await newOrder.populate(['customer', 'products'])
         await populateOrder.save()

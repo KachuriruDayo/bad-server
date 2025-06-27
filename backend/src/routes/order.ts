@@ -1,4 +1,5 @@
 import { Router } from 'express'
+import { rateLimit } from 'express-rate-limit'
 import {
     createOrder,
     deleteOrder,
@@ -14,9 +15,18 @@ import { Role } from '../models/user'
 
 const orderRouter = Router()
 
+const orderLimiter = rateLimit({
+    windowMs: 10 * 60 * 1000,
+    limit: 10,
+    keyGenerator: (req) => (req as any).user?.id || req.ip,
+    message: 'Слишком много запросов, попробуйте позже.',
+    standardHeaders: true,
+    legacyHeaders: false,
+})
+
 orderRouter.post('/', auth, validateOrderBody, createOrder)
-orderRouter.get('/all', auth, getOrders)
-orderRouter.get('/all/me', auth, getOrdersCurrentUser)
+orderRouter.get('/all', orderLimiter, auth, getOrders)
+orderRouter.get('/all/me', orderLimiter, auth, getOrdersCurrentUser)
 orderRouter.get(
     '/:orderNumber',
     auth,

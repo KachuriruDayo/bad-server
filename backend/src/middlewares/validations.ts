@@ -1,5 +1,6 @@
 import { Joi, celebrate } from 'celebrate'
 import { Types } from 'mongoose'
+import { parsePhoneNumberFromString } from 'libphonenumber-js'
 
 // eslint-disable-next-line no-useless-escape
 export const phoneRegExp = /^(\+\d+)?(?:\s|-?|\(?\d+\)?)+$/
@@ -60,6 +61,9 @@ export const validateProductBody = celebrate({
         image: Joi.object().keys({
             fileName: Joi.string().required(),
             originalName: Joi.string().required(),
+            format: Joi.string().required(),
+            width: Joi.number().required(),
+            height: Joi.number().required(),
         }),
         category: Joi.string().required().messages({
             'string.empty': 'Поле "category" должно быть заполнено',
@@ -80,6 +84,9 @@ export const validateProductUpdateBody = celebrate({
         image: Joi.object().keys({
             fileName: Joi.string().required(),
             originalName: Joi.string().required(),
+            format: Joi.string().required(),
+            width: Joi.number().required(),
+            height: Joi.number().required(),
         }),
         category: Joi.string(),
         description: Joi.string(),
@@ -133,3 +140,9 @@ export const validateAuthentication = celebrate({
         }),
     }),
 })
+
+export function normalizePhone(input: string, defaultCountry = 'RU' as any): string | null {
+    const phoneNumber = parsePhoneNumberFromString(input, defaultCountry);
+    if (!phoneNumber || !phoneNumber.isValid()) return null;
+    return phoneNumber.number; // возвращает номер в E.164 формате
+}

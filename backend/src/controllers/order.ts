@@ -5,6 +5,9 @@ import NotFoundError from '../errors/not-found-error'
 import Order, { IOrder } from '../models/order'
 import Product, { IProduct } from '../models/product'
 import User from '../models/user'
+import {sanitizeHtml} from "../middlewares/sanitize";
+import escapeRegExp from "../utils/escapeRegExp";
+import {normalizePhone} from "../middlewares/validations";
 
 // eslint-disable-next-line max-len
 // GET /orders?page=2&limit=5&sort=totalAmount&order=desc&orderDateFrom=2024-07-01&orderDateTo=2024-08-01&status=delivering&totalAmountFrom=100&totalAmountTo=1000&search=%2B1
@@ -90,7 +93,8 @@ export const getOrders = async (
         ]
 
         if (search) {
-            const searchRegex = new RegExp(search as string, 'i')
+            const safeSearch = escapeRegExp(search as string)
+            const searchRegex = new RegExp(safeSearch, 'i')
             const searchNumber = Number(search)
 
             const searchConditions: any[] = [{ 'products.title': searchRegex }]
@@ -313,11 +317,11 @@ export const createOrder = async (
             totalAmount: total,
             products: items,
             payment,
-            phone,
+            phone: normalizePhone(phone, 'RU'),
             email,
-            comment,
+            comment: sanitizeHtml(comment),
             customer: userId,
-            deliveryAddress: address,
+            deliveryAddress: sanitizeHtml(address),
         })
         const populateOrder = await newOrder.populate(['customer', 'products'])
         await populateOrder.save()

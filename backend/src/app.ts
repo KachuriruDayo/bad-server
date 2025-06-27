@@ -30,8 +30,8 @@ app.use(cors({ origin: process.env.ORIGIN_ALLOW, credentials: true }));
 app.use(serveStatic(path.join(__dirname, 'public')))
 
 
-app.use(express.json({ limit: '10mb' }))
-app.use(express.urlencoded({ limit: '10mb', extended: true }))
+app.use(json({ limit: '10mb' }))
+app.use(urlencoded({ limit: '10mb', extended: true }))
 app.use(cookieParser())
 
 app.options('*', cors({ origin: process.env.ORIGIN_ALLOW, credentials: true }));

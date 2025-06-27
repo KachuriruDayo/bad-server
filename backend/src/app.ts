@@ -5,26 +5,39 @@ import 'dotenv/config'
 import express, { json, urlencoded } from 'express'
 import mongoose from 'mongoose'
 import path from 'path'
+import mongoSanitize from 'express-mongo-sanitize';
+import rateLimit from 'express-rate-limit';
 import { DB_ADDRESS } from './config'
 import errorHandler from './middlewares/error-handler'
 import serveStatic from './middlewares/serverStatic'
 import routes from './routes'
 
+const globalLimiter = rateLimit({
+    windowMs: 10 * 60 * 1000,
+    limit: 100,
+    keyGenerator: (req) => (req as any).user?.id || req.ip,
+    message: 'Слишком много запросов, попробуйте позже.',
+    standardHeaders: true,
+    legacyHeaders: false,
+});
+
 const { PORT = 3000 } = process.env
 const app = express()
+app.use(globalLimiter);
 
-app.use(cookieParser())
-
-app.use(cors())
-// app.use(cors({ origin: process.env.ORIGIN_ALLOW, credentials: true }));
+app.use(cors({ origin: process.env.ORIGIN_ALLOW, credentials: true }));
 // app.use(express.static(path.join(__dirname, 'public')));
-
 app.use(serveStatic(path.join(__dirname, 'public')))
 
-app.use(urlencoded({ extended: true }))
-app.use(json())
 
-app.options('*', cors())
+app.use(express.json({ limit: '10mb' }))
+app.use(express.urlencoded({ limit: '10mb', extended: true }))
+app.use(cookieParser())
+
+app.options('*', cors({ origin: process.env.ORIGIN_ALLOW, credentials: true }));
+
+app.use(mongoSanitize());
+
 app.use(routes)
 app.use(errors())
 app.use(errorHandler)

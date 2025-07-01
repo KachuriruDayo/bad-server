@@ -85,7 +85,9 @@ export const normalizePhone = (input: unknown, defaultCountry = 'RU' as any): st
     const cleanedInput = input.replace(/[^\d+]/g, '');
 
     const phoneNumber = parsePhoneNumberFromString(cleanedInput, defaultCountry);
-    if (!phoneNumber || !phoneNumber.isValid()) return null;
+    if (!phoneNumber || !phoneNumber.isValid()) {
+        throw new BadRequestError('Некорректный номер телефона')
+    }
 
     return phoneNumber.number; // возвращает номер в E.164 формате
 }

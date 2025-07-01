@@ -306,7 +306,10 @@ export const createOrder = async (
             return next(new BadRequestError('Неверная сумма заказа'))
         }
 
-        const normalizedPhone = phone.replace(/\D/g, '')
+        const normalizedPhone = normalizePhone(phone, 'RU')
+        if (!normalizedPhone) {
+            throw new BadRequestError('Некорректный номер телефона')
+        }
 
         const sanitizedAddress = sanitizeHtml(address)
         

@@ -1,6 +1,5 @@
 import { Joi, celebrate } from 'celebrate'
 import { Types } from 'mongoose'
-import { parsePhoneNumberFromString } from 'libphonenumber-js'
 
 // eslint-disable-next-line no-useless-escape
 export const phoneRegExp = /^(\+\d+)?(?:\s|-?|\(?\d+\)?)+$/
@@ -140,9 +139,3 @@ export const validateAuthentication = celebrate({
         }),
     }),
 })
-
-export function normalizePhone(input: string, defaultCountry = 'RU' as any): string | null {
-    const phoneNumber = parsePhoneNumberFromString(input, defaultCountry);
-    if (!phoneNumber || !phoneNumber.isValid()) return null;
-    return phoneNumber.number; // возвращает номер в E.164 формате
-}

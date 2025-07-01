@@ -97,7 +97,7 @@ export const getCustomers = async (
         const options = {
             sort,
             skip: (page - 1) * limit,
-            limit: limit,
+            limit,
         };
 
         const users = await User.find(filters, null, options)

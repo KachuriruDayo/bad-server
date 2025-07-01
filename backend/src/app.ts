@@ -28,7 +28,6 @@ const app = express()
 app.use(globalLimiter);
 
 app.use(helmet())
-app.set('trust proxy', true)
 
 app.use(cors({ origin: process.env.ORIGIN_ALLOW, credentials: true }));
 // app.use(express.static(path.join(__dirname, 'public')));

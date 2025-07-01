@@ -319,7 +319,7 @@ export const createOrder = async (
             totalAmount: total,
             products: items,
             payment,
-            phone: normalizedPhone,
+            phone,
             email,
             comment: sanitizedComment,
             customer: userId,

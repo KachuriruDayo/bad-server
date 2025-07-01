@@ -1,7 +1,7 @@
 import { NextFunction, Request, Response } from 'express'
 import { FilterQuery, Error as MongooseError, Types } from 'mongoose'
-import BadRequestError from '../errors/bad-request-error'
-import NotFoundError from '../errors/not-found-error'
+import BadRequestError from "../errors/bad-request-error";
+import NotFoundError from "../errors/not-found-error";
 import Order, { IOrder } from '../models/order'
 import Product, { IProduct } from '../models/product'
 import User from '../models/user'
@@ -172,9 +172,19 @@ export const getOrdersCurrentUser = async (
         if (search) {
             // если не экранировать то получаем Invalid regular expression: /+1/i: Nothing to repeat
             const safeSearch = escapeRegExp(search as string)
+            if (safeSearch.length > 100) {
+                throw new BadRequestError('Поисковый запрос слишком длинный')
+            }
             const searchRegex = new RegExp(safeSearch, 'i')
-            const searchNumber = Number(search)
-            const products = await Product.find({ title: searchRegex })
+            const searchNumber = !Number.isNaN(Number(search)) ? Number(search) : null
+            const query: any = { title: searchRegex }
+            if (searchNumber !== null) {
+                query.$or = [
+                    { title: searchRegex },
+                    { price: searchNumber }
+                ]
+            }
+            const products = await Product.find(query).limit(50)
             const productIds = products.map((product) => product._id)
 
             orders = orders.filter((order) => {
@@ -296,15 +306,24 @@ export const createOrder = async (
             return next(new BadRequestError('Неверная сумма заказа'))
         }
 
+        const normalizedPhone = normalizePhone(phone, 'RU')
+        if (!normalizedPhone) {
+            throw new BadRequestError('Некорректный номер телефона')
+        }
+
+        const sanitizedAddress = sanitizeHtml(address)
+        
+        const sanitizedComment = sanitizeHtml(comment ?? '')
+
         const newOrder = new Order({
             totalAmount: total,
             products: items,
             payment,
-            phone: normalizePhone(phone, 'RU'),
+            phone: normalizedPhone,
             email,
-            comment: sanitizeHtml(comment),
+            comment: sanitizedComment,
             customer: userId,
-            deliveryAddress: sanitizeHtml(address),
+            deliveryAddress: sanitizedAddress,
         })
         const populateOrder = await newOrder.populate(['customer', 'products'])
         await populateOrder.save()

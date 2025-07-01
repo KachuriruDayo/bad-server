@@ -79,13 +79,18 @@ export const normalizeLimit = (limitQuery: unknown, defaultLim: number ): number
     return limitNum > defaultLim ? defaultLim : limitNum;
 }
 
-export const normalizePhone = (input: string, defaultCountry = 'RU' as any): string | null => {
-    const phoneNumber = parsePhoneNumberFromString(input, defaultCountry);
+export const normalizePhone = (input: unknown, defaultCountry = 'RU' as any): string | null => {
+    if (typeof input !== 'string') return null;
+    
+    const cleanedInput = input.replace(/[^\d+]/g, '');
+
+    const phoneNumber = parsePhoneNumberFromString(cleanedInput, defaultCountry);
     if (!phoneNumber || !phoneNumber.isValid()) return null;
+
     return phoneNumber.number; // возвращает номер в E.164 формате
 }
 
-function getSingleString(value?: string | string[]): string | undefined {
+const getSingleString = (value?: string | string[]): string | undefined => {
     if (Array.isArray(value)) {
         if (value.length === 0) return undefined;
         if (value.length > 1) throw new BadRequestError('Параметр не должен быть массивом');
@@ -94,7 +99,7 @@ function getSingleString(value?: string | string[]): string | undefined {
     return value;
 }
 
-function toPositiveInt(value?: string): number | undefined {
+const toPositiveInt = (value?: string): number | undefined => {
     if (!value) return undefined;
     const n = Number(value);
     if (!Number.isInteger(n) || n <= 0) {
@@ -103,7 +108,7 @@ function toPositiveInt(value?: string): number | undefined {
     return n;
 }
 
-function parsePositiveInt(value?: string, defaultValue = 1): number {
+const parsePositiveInt = (value?: string, defaultValue = 1): number => {
     if (!value) return defaultValue;
     const n = Number(value);
     if (!Number.isInteger(n) || n <= 0) {
@@ -112,7 +117,7 @@ function parsePositiveInt(value?: string, defaultValue = 1): number {
     return n;
 }
 
-function toDate(value?: string): Date | undefined {
+const toDate = (value?: string): Date | undefined => {
     if (!value) return undefined;
     const d = new Date(value);
     if (Number.isNaN(d.getTime())) {
@@ -121,11 +126,9 @@ function toDate(value?: string): Date | undefined {
     return d;
 }
 
-function parseDate(value?: string): Date | undefined {
-    return toDate(value);
-}
+const parseDate = (value?: string): Date | undefined => toDate(value)
 
-function toSortOrder(value?: string): 'asc' | 'desc' {
+const toSortOrder = (value?: string): 'asc' | 'desc'  => {
     if (!value) return 'desc';
     if (value !== 'asc' && value !== 'desc') {
         throw new BadRequestError('sortOrder должен быть "asc" или "desc"');
@@ -133,7 +136,7 @@ function toSortOrder(value?: string): 'asc' | 'desc' {
     return value;
 }
 
-function parseSortOrder(value?: string, defaultValue: 'asc' | 'desc' = 'desc'): 'asc' | 'desc' {
+const parseSortOrder = (value?: string, defaultValue: 'asc' | 'desc' = 'desc'): 'asc' | 'desc' => {
     if (!value) return defaultValue;
     if (value !== 'asc' && value !== 'desc') {
         throw new BadRequestError('sortOrder должен быть "asc" или "desc"');
@@ -141,7 +144,7 @@ function parseSortOrder(value?: string, defaultValue: 'asc' | 'desc' = 'desc'): 
     return value;
 }
 
-function parseNonNegativeNumber(value?: string): number | undefined {
+const parseNonNegativeNumber = (value?: string): number | undefined => {
     if (!value) return undefined;
     const n = Number(value);
     if (!Number.isFinite(n) || n < 0) {
@@ -150,75 +153,81 @@ function parseNonNegativeNumber(value?: string): number | undefined {
     return n;
 }
 
-function sanitizeSearch(value?: string): string | undefined {
+const sanitizeSearch = (value?: string): string | undefined => {
     if (!value) return undefined;
-    // Пример базовой проверки, можно усложнить при необходимости
-    if (/[^a-zA-Z0-9\s]/.test(value)) {
+    
+    const trimmed = value.trim();
+
+    if (trimmed.length === 0) {
+        return undefined;
+    }
+
+    const allowedPattern = /^[a-zA-Z0-9\s\-_.]+$/;
+
+    if (!allowedPattern.test(trimmed)) {
         throw new BadRequestError('Поисковый запрос содержит недопустимые символы');
     }
-    return value;
+
+    return trimmed.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
-export function normalizeOrderQueryParams(query: OrderQueryParams, defaultLimit = 10): NormalizedOrderParams {
+
+export const normalizeOrderQueryParams = (query: OrderQueryParams, defaultLimit = 10): NormalizedOrderParams => {
+    const parseNumber = (value?: string | string[]) => {
+        const str = getSingleString(value);
+        return str ? Number(str) : undefined;
+    };
+    
+    const parseDateString = (value?: string | string[]) => toDate(getSingleString(value));
 
     const pageStr = getSingleString(query.page);
-    const limitRaw = query.limit;
-
-    const sortField = getSingleString(query.sortField) ?? 'createdAt';
-    const sortOrder = toSortOrder(getSingleString(query.sortOrder));
-    const status = getSingleString(query.status);
-    const totalAmountFromStr = getSingleString(query.totalAmountFrom);
-    const totalAmountToStr = getSingleString(query.totalAmountTo);
-    const orderDateFromStr = getSingleString(query.orderDateFrom);
-    const orderDateToStr = getSingleString(query.orderDateTo);
-    const search = getSingleString(query.search);
 
     return {
         page: toPositiveInt(pageStr) ?? 1,
-        limit: normalizeLimit(limitRaw, defaultLimit),
-        sortField,
-        sortOrder,
-        status,
-        totalAmountFrom: totalAmountFromStr ? Number(totalAmountFromStr) : undefined,
-        totalAmountTo: totalAmountToStr ? Number(totalAmountToStr) : undefined,
-        orderDateFrom: toDate(orderDateFromStr),
-        orderDateTo: toDate(orderDateToStr),
-        search,
+        limit: normalizeLimit(query.limit, defaultLimit),
+        sortField: getSingleString(query.sortField) ?? 'createdAt',
+        sortOrder: toSortOrder(getSingleString(query.sortOrder)),
+        status: getSingleString(query.status),
+        totalAmountFrom: parseNumber(query.totalAmountFrom),
+        totalAmountTo: parseNumber(query.totalAmountTo),
+        orderDateFrom: parseDateString(query.orderDateFrom),
+        orderDateTo: parseDateString(query.orderDateTo),
+        search: sanitizeSearch(getSingleString(query.search)),
     };
-}
+};
 
-export function normalizeCustomerQueryParams(query: CustomerQueryParams, defaultLimit = 10): NormalizedCustomerParams {
-    const page = parsePositiveInt(getSingleString(query.page), 1);
-    const limit = parsePositiveInt(getSingleString(query.limit), defaultLimit);
-    const sortField = getSingleString(query.sortField) || 'createdAt';
-    const sortOrder = parseSortOrder(getSingleString(query.sortOrder), 'desc');
 
-    const registrationDateFrom = parseDate(getSingleString(query.registrationDateFrom));
-    const registrationDateTo = parseDate(getSingleString(query.registrationDateTo));
-    const lastOrderDateFrom = parseDate(getSingleString(query.lastOrderDateFrom));
-    const lastOrderDateTo = parseDate(getSingleString(query.lastOrderDateTo));
+export const normalizeCustomerQueryParams = (
+    query: CustomerQueryParams,
+    defaultLimit = 10
+): NormalizedCustomerParams => {
+    const parseDateString = (value?: string | string[]) => parseDate(getSingleString(value));
+    const parseNumberString = (value?: string | string[]) => parseNonNegativeNumber(getSingleString(value));
+    const parsePositiveIntString = (value?: string | string[], fallback?: number) =>
+        parsePositiveInt(getSingleString(value), fallback);
 
-    const totalAmountFrom = parseNonNegativeNumber(getSingleString(query.totalAmountFrom));
-    const totalAmountTo = parseNonNegativeNumber(getSingleString(query.totalAmountTo));
-
-    const orderCountFrom = parseNonNegativeNumber(getSingleString(query.orderCountFrom));
-    const orderCountTo = parseNonNegativeNumber(getSingleString(query.orderCountTo));
-
-    const search = sanitizeSearch(getSingleString(query.search));
+    const page = parsePositiveIntString(query.page, 1);
+    const limitRaw = getSingleString(query.limit);
+    const limit = normalizeLimit(limitRaw ? Number(limitRaw) : undefined, defaultLimit);
 
     return {
         page,
         limit,
-        sortField,
-        sortOrder,
-        registrationDateFrom,
-        registrationDateTo,
-        lastOrderDateFrom,
-        lastOrderDateTo,
-        totalAmountFrom,
-        totalAmountTo,
-        orderCountFrom,
-        orderCountTo,
-        search,
+        sortField: getSingleString(query.sortField) || 'createdAt',
+        sortOrder: parseSortOrder(getSingleString(query.sortOrder), 'desc'),
+
+        registrationDateFrom: parseDateString(query.registrationDateFrom),
+        registrationDateTo: parseDateString(query.registrationDateTo),
+        lastOrderDateFrom: parseDateString(query.lastOrderDateFrom),
+        lastOrderDateTo: parseDateString(query.lastOrderDateTo),
+
+        totalAmountFrom: parseNumberString(query.totalAmountFrom),
+        totalAmountTo: parseNumberString(query.totalAmountTo),
+
+        orderCountFrom: parseNumberString(query.orderCountFrom),
+        orderCountTo: parseNumberString(query.orderCountTo),
+
+        search: sanitizeSearch(getSingleString(query.search)),
     };
-}
+};
+

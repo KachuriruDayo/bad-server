@@ -15,7 +15,6 @@ export const getCustomers = async (
     next: NextFunction
 ) => {
     try {
-        // Нормализуем параметры из запроса
         const {
             page,
             limit,

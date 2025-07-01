@@ -34,7 +34,7 @@ export const uploadFile = async (
             throw new BadRequestError('Невозможно прочитать метаданные изображения');
         }
 
-        return res.status(constants.HTTP_STATUS_CREATED).send({
+        return res.status(constants.HTTP_STATUS_OK).send({
             fileName: req.file.filename,
             originalName: req.file.originalname,
             width: metadata.width,

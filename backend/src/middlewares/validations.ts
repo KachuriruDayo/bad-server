@@ -80,9 +80,6 @@ export const validateProductUpdateBody = celebrate({
         image: Joi.object().keys({
             fileName: Joi.string().required(),
             originalName: Joi.string().required(),
-            format: Joi.string().required(),
-            width: Joi.number().required(),
-            height: Joi.number().required(),
         }),
         category: Joi.string(),
         description: Joi.string(),

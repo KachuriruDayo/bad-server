@@ -22,7 +22,6 @@ const login = async (req: Request, res: Response, next: NextFunction) => {
             refreshToken,
             REFRESH_TOKEN.cookie.options
         )
-        
         return res.json({
             success: true,
             user,

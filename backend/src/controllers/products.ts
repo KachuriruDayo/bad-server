@@ -41,19 +41,23 @@ const createProduct = async (
 ) => {
     try {
         const { description, category, price, title, image } = req.body
-
-        // Переносим картинку из временной папки
+        
         if (image) {
-            movingFile(
+            await movingFile(
                 image.fileName,
                 join(__dirname, `../public/${process.env.UPLOAD_PATH_TEMP}`),
                 join(__dirname, `../public/${process.env.UPLOAD_PATH}`)
             )
         }
 
+        const imageObj = {
+            fileName: `/${process.env.UPLOAD_PATH || 'images'}/${image.fileName}`,
+            originalName: image.originalName,
+        };
+
         const product = await Product.create({
             description,
-            image,
+            image: imageObj,
             category,
             price,
             title,
@@ -82,15 +86,16 @@ const updateProduct = async (
     try {
         const { productId } = req.params
         const { image } = req.body
-
-        // Переносим картинку из временной папки
+        
         if (image) {
-            movingFile(
+            await movingFile(
                 image.fileName,
                 join(__dirname, `../public/${process.env.UPLOAD_PATH_TEMP}`),
                 join(__dirname, `../public/${process.env.UPLOAD_PATH}`)
             )
         }
+
+        image.fileName = `/${process.env.UPLOAD_PATH || 'images'}/${image.fileName}`;
 
         const product = await Product.findByIdAndUpdate(
             productId,

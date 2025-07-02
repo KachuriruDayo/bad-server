@@ -16,7 +16,7 @@ services:
     volumes:
       - db:/data/db
     ports:
-      - 27017:27017
+      - 27018:27017
     networks:
       - internal
 
@@ -40,7 +40,7 @@ services:
     build:
       context: nginx
     ports:
-      - 80:80
+      - 1000:1000
     volumes:
       - frontend:/var/app
       - public:/var/public

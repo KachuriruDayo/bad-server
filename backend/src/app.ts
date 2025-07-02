@@ -15,7 +15,7 @@ import routes from './routes'
 
 const globalLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
-    limit: 200,
+    limit: 20,
     // keyGenerator: (req) => (req as any).user?.id || req.ip,
     message: 'Слишком много запросов, попробуйте позже.',
     standardHeaders: true,
@@ -25,20 +25,42 @@ const globalLimiter = rateLimit({
 const { PORT = 3000 } = process.env
 const app = express()
 
-app.use(globalLimiter);
+app.use(helmet({
+    contentSecurityPolicy: {
+        directives: {
+            defaultSrc: ["'self'"],
+            imgSrc: ["'self'", "http://localhost:3000", "data:"],
+        }
+    }
+}))
+app.set('trust proxy', 1)
 
-app.use(helmet())
-
-app.use(cors({ origin: process.env.ORIGIN_ALLOW, credentials: true }));
+// app.use(cors({ origin: process.env.ORIGIN_ALLOW, credentials: true }));
 // app.use(express.static(path.join(__dirname, 'public')));
+
+app.use(cors({
+    origin: 'http://localhost:5173',
+    credentials: true,
+}))
+
+app.use('/images', (_req, res, next) => {
+    res.setHeader('Access-Control-Allow-Origin', 'http://localhost:5173');
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
+    res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+    next();
+});
+
 app.use(serveStatic(path.join(__dirname, 'public')))
 
 
-app.use(json({ limit: '10mb' }))
-app.use(urlencoded({ limit: '10mb', extended: true }))
+app.use(json({ limit: '10kb' }))
+app.use(urlencoded({ limit: '10kb', extended: true }))
 app.use(cookieParser())
 
-app.options('*', cors({ origin: process.env.ORIGIN_ALLOW, credentials: true }));
+app.use(globalLimiter);
+
+
+app.options('*', cors());
 
 app.use(mongoSanitize());
 

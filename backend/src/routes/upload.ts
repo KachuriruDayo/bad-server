@@ -1,8 +1,14 @@
-import { Router } from 'express'
-import { uploadFile } from '../controllers/upload'
+import { Router } from 'express';
+import { uploadFile } from '../controllers/upload';
 import fileMiddleware, { checkFileMinSize } from '../middlewares/file';
 
-const uploadRouter = Router()
-uploadRouter.post('/', fileMiddleware.single('file'), checkFileMinSize, uploadFile)
+const uploadRouter = Router();
 
-export default uploadRouter
+uploadRouter.post(
+    '/',
+    fileMiddleware.single('file'),
+    checkFileMinSize,
+    uploadFile
+);
+
+export default uploadRouter;

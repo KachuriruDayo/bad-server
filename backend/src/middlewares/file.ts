@@ -3,12 +3,8 @@ import multer, { FileFilterCallback } from 'multer';
 import { join, extname } from 'path';
 import { randomUUID } from 'crypto';
 
-
-type DestinationCallback = (error: Error | null, destination: string) => void;
-type FileNameCallback = (error: Error | null, filename: string) => void;
-
-const MAX_SIZE = 10 * 1024 * 1024;
-const MIN_SIZE = 2 * 1024;
+const MAX_SIZE = 10 * 1024 * 1024; // 10MB
+const MIN_SIZE = 2 * 1024;         // 2KB
 
 const allowedTypes = [
     'image/png',
@@ -21,38 +17,21 @@ const allowedTypes = [
 const allowedExts = ['.png', '.jpg', '.jpeg', '.gif', '.svg'];
 
 const storage = multer.diskStorage({
-    destination: (
-        _req: Request,
-        _file: Express.Multer.File,
-        cb: DestinationCallback,
-    ) => {
-        cb(
-            null,
-            join(
-                __dirname,
-                process.env.UPLOAD_PATH_TEMP
-                    ? `../public/${process.env.UPLOAD_PATH_TEMP}`
-                    : '../public'
-            )
-        );
+    destination: (_req, _file, cb) => {
+        const dest = process.env.UPLOAD_PATH_TEMP
+            ? join(__dirname, '../public/', process.env.UPLOAD_PATH_TEMP)
+            : join(__dirname, '../public');
+
+        cb(null, dest);
     },
 
-    filename: (
-        _req: Request,
-        file: Express.Multer.File,
-        cb: FileNameCallback,
-    ) => {
-        const ext = extname(file.originalname);
-        const uniqueName = `${Date.now()}-${randomUUID()}${ext}`;
+    filename: (_req, file, cb) => {
+        const uniqueName = `${Date.now()}-${randomUUID()}${extname(file.originalname).toLowerCase()}`;
         cb(null, uniqueName);
     },
 });
 
-const fileFilter = (
-    _req: Request,
-    file: Express.Multer.File,
-    cb: FileFilterCallback
-) => {
+const fileFilter = (_req: Request, file: Express.Multer.File, cb: FileFilterCallback) => {
     const ext = extname(file.originalname).toLowerCase();
 
     if (!allowedTypes.includes(file.mimetype) || !allowedExts.includes(ext)) {
@@ -68,4 +47,8 @@ export const checkFileMinSize = (req: Request, _res: any, next: any) => {
     next();
 };
 
-export default multer({ storage, fileFilter, limits: { fileSize: MAX_SIZE } })
+export default multer({
+    storage,
+    fileFilter,
+    limits: { fileSize: MAX_SIZE },
+});

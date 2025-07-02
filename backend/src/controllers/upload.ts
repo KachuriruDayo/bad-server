@@ -1,8 +1,9 @@
 import { Request, Response, NextFunction } from 'express';
 import sharp from 'sharp';
 import { constants } from 'http2';
-import path, { join } from 'path';
+import { join, basename } from 'path';
 import { unlink } from 'fs/promises';
+import { randomUUID } from 'crypto';
 import BadRequestError from '../errors/bad-request-error';
 
 export const uploadFile = async (
@@ -21,31 +22,34 @@ export const uploadFile = async (
         req.file.filename
     );
 
+    const cleanFileName = `${Date.now()}-${randomUUID()}`;
+    let cleanPath = '';
+
     try {
-        await sharp(tempPath)
-            // Удаляем метаданные просто не добавляя их
-            .toFile(`${tempPath  }_clean`);
+        const metadata = await sharp(tempPath).metadata();
 
-        const metadata = await sharp(`${tempPath  }_clean`).metadata();
-
-        if (!metadata.width || !metadata.height) {
-            await unlink(`${tempPath  }_clean`);
-            throw new BadRequestError('Невозможно прочитать метаданные изображения');
+        if (!metadata.format || !metadata.width || !metadata.height) {
+            throw new BadRequestError('Файл не является валидным изображением');
         }
-        
-        await unlink(tempPath);
+
+        const safeExt = metadata.format === 'jpeg' ? '.jpg' : `.${metadata.format}`;
+        cleanPath = tempPath.replace(req.file.filename, `${cleanFileName}${safeExt}`);
+
+        await sharp(tempPath)
+            .toFile(cleanPath);
+
+        await unlink(tempPath).catch(() => {});
 
         return res.status(constants.HTTP_STATUS_OK).send({
-            fileName: path.basename(`${tempPath  }_clean`),
+            fileName: basename(cleanPath),
             originalName: req.file.originalname,
         });
-    } catch (error) {
-        try {
-            await unlink(tempPath);
-        } catch (unlinkErr) {
-        console.error(`Ошибка при удалении временного файла: ${tempPath}`, unlinkErr);
-    }
 
+    } catch (error) {
+        await unlink(tempPath).catch(() => {});
+        if (cleanPath) {
+            await unlink(cleanPath).catch(() => {});
+        }
         return next(error);
     }
 };

@@ -16,7 +16,7 @@ import routes from './routes'
 const globalLimiter = rateLimit({
     windowMs: 3 * 60 * 1000,
     limit: 40,
-    // keyGenerator: (req) => (req as any).user?.id || req.ip,
+    keyGenerator: (req) => (req as any).user?.id || req.ip,
     message: 'Слишком много запросов, попробуйте позже.',
     standardHeaders: true,
     legacyHeaders: false,

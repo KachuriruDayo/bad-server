@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import sharp from 'sharp';
 import { constants } from 'http2';
-import { join } from 'path';
+import path, { join } from 'path';
 import { unlink } from 'fs/promises';
 import BadRequestError from '../errors/bad-request-error';
 
@@ -23,23 +23,21 @@ export const uploadFile = async (
 
     try {
         await sharp(tempPath)
-            .withMetadata({})
-            .toBuffer()
-            .then(data => sharp(data).toFile(tempPath));
+            // Удаляем метаданные просто не добавляя их
+            .toFile(`${tempPath  }_clean`);
 
-        const metadata = await sharp(tempPath).metadata();
+        const metadata = await sharp(`${tempPath  }_clean`).metadata();
 
         if (!metadata.width || !metadata.height) {
-            await unlink(tempPath);
+            await unlink(`${tempPath  }_clean`);
             throw new BadRequestError('Невозможно прочитать метаданные изображения');
         }
+        
+        await unlink(tempPath);
 
         return res.status(constants.HTTP_STATUS_OK).send({
-            fileName: req.file.filename,
+            fileName: path.basename(`${tempPath  }_clean`),
             originalName: req.file.originalname,
-            width: metadata.width,
-            height: metadata.height,
-            format: metadata.format,
         });
     } catch (error) {
         try {

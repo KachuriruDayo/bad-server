@@ -14,7 +14,7 @@ import serveStatic from './middlewares/serverStatic'
 import routes from './routes'
 
 const globalLimiter = rateLimit({
-    windowMs: 15 * 60 * 1000,
+    windowMs: 3 * 60 * 1000,
     limit: 40,
     // keyGenerator: (req) => (req as any).user?.id || req.ip,
     message: 'Слишком много запросов, попробуйте позже.',
@@ -37,6 +37,8 @@ app.use(serveStatic(path.join(__dirname, 'public')))
 app.use(json({ limit: '10mb' }))
 app.use(urlencoded({ limit: '10mb', extended: true }))
 app.use(cookieParser())
+
+app.options('*', cors({ origin: process.env.ORIGIN_ALLOW, credentials: true }));
 
 app.use(mongoSanitize());
 

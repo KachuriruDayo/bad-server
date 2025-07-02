@@ -7,7 +7,7 @@ import Product, { IProduct } from '../models/product'
 import User from '../models/user'
 import { sanitizeHtml } from "../middlewares/sanitize";
 import escapeRegExp from "../utils/escapeRegExp";
-import { normalizeLimit, normalizePhone, normalizeOrderQueryParams } from "../utils/parseOrderQuery";
+import { normalizeLimit, normalizePhone, normalizeOrderQueryParams } from "../utils/parseQueryParams";
 
 // eslint-disable-next-line max-len
 export const getOrders = async (

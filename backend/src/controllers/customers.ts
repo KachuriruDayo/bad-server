@@ -4,7 +4,7 @@ import NotFoundError from '../errors/not-found-error'
 import Order from '../models/order'
 import User, { IUser } from '../models/user'
 import escapeRegExp from "../utils/escapeRegExp";
-import { normalizeCustomerQueryParams } from "../utils/parseOrderQuery";
+import { normalizeCustomerQueryParams } from "../utils/parseQueryParams";
 
 // eslint-disable-next-line max-len
 export const getCustomers = async (
@@ -129,7 +129,6 @@ export const getCustomers = async (
     }
 };
 
-// TODO: Добавить guard admin
 // Get /customers/:id
 export const getCustomerById = async (
     req: Request,
@@ -147,7 +146,6 @@ export const getCustomerById = async (
     }
 }
 
-// TODO: Добавить guard admin
 // Patch /customers/:id
 export const updateCustomer = async (
     req: Request,
@@ -175,7 +173,6 @@ export const updateCustomer = async (
     }
 }
 
-// TODO: Добавить guard admin
 // Delete /customers/:id
 export const deleteCustomer = async (
     req: Request,

@@ -14,20 +14,27 @@ import serveStatic from './middlewares/serverStatic'
 import routes from './routes'
 
 const globalLimiter = rateLimit({
-    windowMs: 3 * 60 * 1000,
-    limit: 40,
+    windowMs: 15 * 60 * 1000,
+    limit: 20,
     keyGenerator: (req) => (req as any).user?.id || req.ip,
     message: 'Слишком много запросов, попробуйте позже.',
     standardHeaders: true,
     legacyHeaders: false,
+    handler: (req, res, _next, options) => {
+        res.status(options.statusCode).json({
+            error: 'TooManyRequests',
+            message: options.message,
+        });
+    }
 });
 
 const { PORT = 3000 } = process.env
 const app = express()
 
-app.use(globalLimiter);
+app.set('trust proxy', true)
 
 app.use(helmet())
+app.use(globalLimiter);
 
 app.use(cors({ origin: process.env.ORIGIN_ALLOW, credentials: true }));
 // app.use(express.static(path.join(__dirname, 'public')));

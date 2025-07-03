@@ -1,24 +1,34 @@
-import { NextFunction, Request, Response } from 'express'
-import fs from 'fs'
-import path from 'path'
+import { NextFunction, Request, Response } from 'express';
+import fs from 'fs';
+import path from 'path';
 
 export default function serveStatic(baseDir: string) {
-    return (req: Request, res: Response, next: NextFunction) => {
-        // Определяем полный путь к запрашиваемому файлу
-        const filePath = path.join(baseDir, req.path)
+    const absBaseDir = path.resolve(baseDir);
 
-        // Проверяем, существует ли файл
-        fs.access(filePath, fs.constants.F_OK, (err) => {
+    return (req: Request, res: Response, next: NextFunction) => {
+        const requestedPath = path.normalize(req.path);
+        
+        const filePath = path.resolve(absBaseDir, `.${  requestedPath}`);
+        
+        if (!filePath.startsWith(absBaseDir)) {
+            console.warn(`[serveStatic] Path Traversal attempt: ${filePath}`);
+            return res.status(403).send('Forbidden');
+        }
+        
+        fs.stat(filePath, (err, stats) => {
             if (err) {
-                // Файл не существует отдаем дальше мидлварам
-                return next()
+                return next();
             }
-            // Файл существует, отправляем его клиенту
-            return res.sendFile(filePath, (err) => {
+
+            if (!stats.isFile()) {
+                return next();
+            }
+            
+            res.sendFile(filePath, (err) => {
                 if (err) {
-                    next(err)
+                    next(err);
                 }
-            })
-        })
-    }
+            });
+        });
+    };
 }

@@ -31,10 +31,8 @@ const globalLimiter = rateLimit({
 const { PORT = 3000 } = process.env
 const app = express()
 
-app.set('trust proxy', true)
-
 app.use(helmet())
-app.use(globalLimiter);
+app.set('trust proxy', 1)
 
 app.use(cors({ origin: process.env.ORIGIN_ALLOW, credentials: true }));
 // app.use(express.static(path.join(__dirname, 'public')));
@@ -44,6 +42,8 @@ app.use(serveStatic(path.join(__dirname, 'public')))
 app.use(json({ limit: '10mb' }))
 app.use(urlencoded({ limit: '10mb', extended: true }))
 app.use(cookieParser())
+
+app.use(globalLimiter);
 
 app.options('*', cors({ origin: process.env.ORIGIN_ALLOW, credentials: true }));
 

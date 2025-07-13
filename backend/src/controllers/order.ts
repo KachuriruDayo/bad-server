@@ -28,7 +28,22 @@ export const getOrders = async (
             search,
         } = req.query
 
+        const correctLimit = Math.min(Number(limit), 10).toString()
         const filters: FilterQuery<Partial<IOrder>> = {}
+
+        if (status) {
+            if (typeof status === 'string' && /^[a-zA-Z0-9_-]+$/.test(status)) {
+                filters.status = status
+            } else {
+                throw new BadRequestError('Передан невалидный параметр статуса')
+            }
+        }
+
+        if (search) {
+            if (/[^\w\s]/.test(search as string)) {
+                throw new BadRequestError('Передан невалидный поисковый запрос')
+            }
+        }
 
         if (status) {
             if (typeof status === 'object') {
@@ -116,8 +131,8 @@ export const getOrders = async (
 
         aggregatePipeline.push(
             { $sort: sort },
-            { $skip: (Number(page) - 1) * Number(limit) },
-            { $limit: Number(limit) },
+            { $skip: (Number(page) - 1) * Number(correctLimit) },
+            { $limit: Number(correctLimit) },
             {
                 $group: {
                     _id: '$_id',
@@ -133,7 +148,7 @@ export const getOrders = async (
 
         const orders = await Order.aggregate(aggregatePipeline)
         const totalOrders = await Order.countDocuments(filters)
-        const totalPages = Math.ceil(totalOrders / Number(limit))
+        const totalPages = Math.ceil(totalOrders / Number(correctLimit))
 
         res.status(200).json({
             orders,
@@ -141,7 +156,7 @@ export const getOrders = async (
                 totalOrders,
                 totalPages,
                 currentPage: Number(page),
-                pageSize: Number(limit),
+                pageSize: Number(correctLimit),
             },
         })
     } catch (error) {
@@ -157,9 +172,10 @@ export const getOrdersCurrentUser = async (
     try {
         const userId = res.locals.user._id
         const { search, page = 1, limit = 5 } = req.query
+        const safeLimit = Math.min(Number(limit), 10)
         const options = {
-            skip: (Number(page) - 1) * Number(limit),
-            limit: Number(limit),
+            skip: (Number(page) - 1) * Number(safeLimit),
+            limit: Number(safeLimit),
         }
 
         const user = await User.findById(userId)
@@ -183,7 +199,9 @@ export const getOrdersCurrentUser = async (
 
         let orders = user.orders as unknown as IOrder[]
 
-        if (search) {
+        const isSafe = typeof search === 'string' && search.length < 100 && /^[\wа-яА-ЯёЁ0-9\s\-.,]+$/.test(search)
+
+        if (search && isSafe) {
             // если не экранировать то получаем Invalid regular expression: /+1/i: Nothing to repeat
             const searchRegex = new RegExp(search as string, 'i')
             const searchNumber = Number(search)
@@ -205,7 +223,7 @@ export const getOrdersCurrentUser = async (
         }
 
         const totalOrders = orders.length
-        const totalPages = Math.ceil(totalOrders / Number(limit))
+        const totalPages = Math.ceil(totalOrders / Number(safeLimit))
 
         orders = orders.slice(options.skip, options.skip + options.limit)
 
@@ -215,7 +233,7 @@ export const getOrdersCurrentUser = async (
                 totalOrders,
                 totalPages,
                 currentPage: Number(page),
-                pageSize: Number(limit),
+                pageSize: Number(safeLimit),
             },
         })
     } catch (error) {
@@ -294,6 +312,12 @@ export const createOrder = async (
         const { address, payment, phone, total, email, items, comment } =
             req.body
 
+        const normalizedPhone = phone.replace(/\D/g, '')
+
+        if (!Array.isArray(items)) {
+            return next(new BadRequestError('Поле items должно быть массивом'))
+        }
+        
         items.forEach((id: Types.ObjectId) => {
             const product = products.find((p) => p._id.equals(id))
             if (!product) {
@@ -312,12 +336,12 @@ export const createOrder = async (
         const newOrder = new Order({
             totalAmount: total,
             products: items,
-            payment,
-            phone,
-            email,
-            comment,
+            payment: escape(payment).slice(0, 50),
+            phone: normalizedPhone,
+            email: escape(email).slice(0, 100),
+            comment: escape(comment).slice(0, 1000),
             customer: userId,
-            deliveryAddress: address,
+            deliveryAddress: escape(address).slice(0, 200),
         })
         const populateOrder = await newOrder.populate(['customer', 'products'])
         await populateOrder.save()

@@ -1,15 +1,14 @@
 import { NextFunction, Request, Response } from 'express'
 import { FilterQuery, Error as MongooseError, Types } from 'mongoose'
-import BadRequestError from "../errors/bad-request-error";
-import NotFoundError from "../errors/not-found-error";
+import BadRequestError from '../errors/bad-request-error'
+import NotFoundError from '../errors/not-found-error'
 import Order, { IOrder } from '../models/order'
 import Product, { IProduct } from '../models/product'
 import User from '../models/user'
-import { sanitizeHtml } from "../middlewares/sanitize";
-import escapeRegExp from "../utils/escapeRegExp";
-import { normalizeLimit, normalizePhone, normalizeOrderQueryParams } from "../utils/parseQueryParams";
 
 // eslint-disable-next-line max-len
+// GET /orders?page=2&limit=5&sort=totalAmount&order=desc&orderDateFrom=2024-07-01&orderDateTo=2024-08-01&status=delivering&totalAmountFrom=100&totalAmountTo=1000&search=%2B1
+
 export const getOrders = async (
     req: Request,
     res: Response,
@@ -27,24 +26,45 @@ export const getOrders = async (
             orderDateFrom,
             orderDateTo,
             search,
-        } = normalizeOrderQueryParams(req.query, 10)
+        } = req.query
 
         const filters: FilterQuery<Partial<IOrder>> = {}
 
         if (status) {
-            filters.status = status;
+            if (typeof status === 'object') {
+                Object.assign(filters, status)
+            }
+            if (typeof status === 'string') {
+                filters.status = status
+            }
         }
 
-        if (totalAmountFrom !== undefined || totalAmountTo !== undefined) {
-            filters.totalAmount = {};
-            if (totalAmountFrom !== undefined) filters.totalAmount.$gte = totalAmountFrom;
-            if (totalAmountTo !== undefined) filters.totalAmount.$lte = totalAmountTo;
+        if (totalAmountFrom) {
+            filters.totalAmount = {
+                ...filters.totalAmount,
+                $gte: Number(totalAmountFrom),
+            }
         }
 
-        if (orderDateFrom !== undefined || orderDateTo !== undefined) {
-            filters.createdAt = {};
-            if (orderDateFrom !== undefined) filters.createdAt.$gte = orderDateFrom;
-            if (orderDateTo !== undefined) filters.createdAt.$lte = orderDateTo;
+        if (totalAmountTo) {
+            filters.totalAmount = {
+                ...filters.totalAmount,
+                $lte: Number(totalAmountTo),
+            }
+        }
+
+        if (orderDateFrom) {
+            filters.createdAt = {
+                ...filters.createdAt,
+                $gte: new Date(orderDateFrom as string),
+            }
+        }
+
+        if (orderDateTo) {
+            filters.createdAt = {
+                ...filters.createdAt,
+                $lte: new Date(orderDateTo as string),
+            }
         }
 
         const aggregatePipeline: any[] = [
@@ -70,8 +90,7 @@ export const getOrders = async (
         ]
 
         if (search) {
-            const safeSearch = escapeRegExp(search as string)
-            const searchRegex = new RegExp(safeSearch, 'i')
+            const searchRegex = new RegExp(search as string, 'i')
             const searchNumber = Number(search)
 
             const searchConditions: any[] = [{ 'products.title': searchRegex }]
@@ -97,8 +116,8 @@ export const getOrders = async (
 
         aggregatePipeline.push(
             { $sort: sort },
-            { $skip: (Number(page) - 1) * limit },
-            { $limit: limit},
+            { $skip: (Number(page) - 1) * Number(limit) },
+            { $limit: Number(limit) },
             {
                 $group: {
                     _id: '$_id',
@@ -114,7 +133,7 @@ export const getOrders = async (
 
         const orders = await Order.aggregate(aggregatePipeline)
         const totalOrders = await Order.countDocuments(filters)
-        const totalPages = Math.ceil(totalOrders / limit)
+        const totalPages = Math.ceil(totalOrders / Number(limit))
 
         res.status(200).json({
             orders,
@@ -122,7 +141,7 @@ export const getOrders = async (
                 totalOrders,
                 totalPages,
                 currentPage: Number(page),
-                pageSize: limit,
+                pageSize: Number(limit),
             },
         })
     } catch (error) {
@@ -138,12 +157,9 @@ export const getOrdersCurrentUser = async (
     try {
         const userId = res.locals.user._id
         const { search, page = 1, limit = 5 } = req.query
-
-        const normalizedLimit = normalizeLimit(limit, 5)
-
         const options = {
-            skip: (Number(page) - 1) * normalizedLimit,
-            limit: normalizedLimit,
+            skip: (Number(page) - 1) * Number(limit),
+            limit: Number(limit),
         }
 
         const user = await User.findById(userId)
@@ -169,20 +185,9 @@ export const getOrdersCurrentUser = async (
 
         if (search) {
             // если не экранировать то получаем Invalid regular expression: /+1/i: Nothing to repeat
-            const safeSearch = escapeRegExp(search as string)
-            if (safeSearch.length > 100) {
-                throw new BadRequestError('Поисковый запрос слишком длинный')
-            }
-            const searchRegex = new RegExp(safeSearch, 'i')
-            const searchNumber = !Number.isNaN(Number(search)) ? Number(search) : null
-            const query: any = { title: searchRegex }
-            if (searchNumber !== null) {
-                query.$or = [
-                    { title: searchRegex },
-                    { price: searchNumber }
-                ]
-            }
-            const products = await Product.find(query).limit(50)
+            const searchRegex = new RegExp(search as string, 'i')
+            const searchNumber = Number(search)
+            const products = await Product.find({ title: searchRegex })
             const productIds = products.map((product) => product._id)
 
             orders = orders.filter((order) => {
@@ -200,7 +205,7 @@ export const getOrdersCurrentUser = async (
         }
 
         const totalOrders = orders.length
-        const totalPages = Math.ceil(totalOrders / normalizedLimit)
+        const totalPages = Math.ceil(totalOrders / Number(limit))
 
         orders = orders.slice(options.skip, options.skip + options.limit)
 
@@ -210,7 +215,7 @@ export const getOrdersCurrentUser = async (
                 totalOrders,
                 totalPages,
                 currentPage: Number(page),
-                pageSize: normalizedLimit,
+                pageSize: Number(limit),
             },
         })
     } catch (error) {
@@ -304,24 +309,15 @@ export const createOrder = async (
             return next(new BadRequestError('Неверная сумма заказа'))
         }
 
-        const normalizedPhone = normalizePhone(phone, 'RU')
-        if (!normalizedPhone) {
-            throw new BadRequestError('Некорректный номер телефона')
-        }
-
-        const sanitizedAddress = sanitizeHtml(address)
-
-        const sanitizedComment = sanitizeHtml(comment ?? '')
-
         const newOrder = new Order({
             totalAmount: total,
             products: items,
             payment,
-            phone: normalizedPhone,
+            phone,
             email,
-            comment: sanitizedComment,
+            comment,
             customer: userId,
-            deliveryAddress: sanitizedAddress,
+            deliveryAddress: address,
         })
         const populateOrder = await newOrder.populate(['customer', 'products'])
         await populateOrder.save()

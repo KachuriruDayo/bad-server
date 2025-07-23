@@ -103,7 +103,7 @@ const updateProduct = async (
 
         if (req.body.image && req.body.image.fileName) {
             const safeFileName = basename(req.body.image.fileName)
-            updateData.image = { ...req.body.image, fileName: safeFileName }
+            updateData.image = { ...req.body.image, fileName: `/${process.env.UPLOAD_PATH}/${basename(req.body.image.fileName)}` }
 
             movingFile(
                 safeFileName,
